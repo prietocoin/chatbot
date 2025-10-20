@@ -1,34 +1,50 @@
+// Archivo index.js
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const express = require('express');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
-// ----------------------------------------------------------
-// 1. CARGA DE CONFIGURACIÓN Y ENTORNO
-// ----------------------------------------------------------
-const config = require('./config.json');
+// 1. CARGA DE CONFIGURACIÓN
+const env = process.env.NODE_ENV || 'development'; // Por defecto a 'development' si no está seteado
+const configPath = path.resolve(__dirname, 'config.json');
+let config = {};
 
-// Determina el entorno ('test' o 'production'). Lee la variable NODE_ENV de EasyPanel.
-const environment = process.env.NODE_ENV === 'production' ? 'production' : 'test';
+try {
+    const rawConfig = fs.readFileSync(configPath);
+    const fullConfig = JSON.parse(rawConfig);
+    config = fullConfig[env] || fullConfig['development']; // Usa el entorno actual
+    
+    if (!config.N8N_WEBHOOK_URL) {
+        throw new Error(`URL de Webhook no encontrada para el entorno: ${env}`);
+    }
+    console.log(`🤖 Entorno de ejecución: ${env}`);
+    console.log(`🔗 Webhook de N8N configurado: ${config.N8N_WEBHOOK_URL}`);
+} catch (error) {
+    console.error('❌ Error fatal al cargar la configuración (config.json o NODE_ENV):', error.message);
+    process.exit(1);
+}
 
-// Selecciona las credenciales para el entorno actual (del archivo config.json)
-const envConfig = config[environment]; 
+const N8N_WEBHOOK_URL = config.N8N_WEBHOOK_URL; 
 
-// La URL del Webhook ahora se lee del archivo config.json cargado
-const N8N_WEBHOOK_URL = envConfig.N8N_WEBHOOK_URL; 
-// ----------------------------------------------------------
+// Configuración de Axios para llamadas internas (para evitar problemas de certificados)
+const axiosInstance = axios.create({
+    // Si la URL es HTTP (red interna), usamos un agente especial
+    httpAgent: N8N_WEBHOOK_URL.startsWith('http://') ? new require('http').Agent({ rejectUnauthorized: false }) : null,
+    // Si la URL es HTTPS (red externa), el agente es nulo y usa el comportamiento por defecto (que incluye SSL)
+    httpsAgent: N8N_WEBHOOK_URL.startsWith('https://') ? new require('https').Agent({ rejectUnauthorized: false }) : null,
+});
 
 const app = express();
 const port = 3000; 
 
 app.use(express.json({ limit: '50mb' }));
 
-// 1. Configuración e Inicialización del Cliente
+// 2. Configuración e Inicialización del Cliente
 const client = new Client({
-    // Usa LocalAuth para persistir la sesión (CRÍTICO para la estrategia anti-bloqueo)
     authStrategy: new LocalAuth(),
     puppeteer: {
-        // Configuraciones anti-bloqueo y para entornos Docker
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
@@ -37,15 +53,13 @@ const client = new Client({
             '--no-zygote',
             '--single-process',
         ],
-        // <<< RUTA FUNCIONAL >>>: Se utiliza el binario 'chromium'
         executablePath: '/usr/bin/chromium', 
     }
 });
 
-// 2. Eventos de Conexión
+// 3. Eventos de Conexión
 client.on('qr', (qr) => {
     console.log('🤖 Escanea el código QR con WhatsApp Web:');
-    console.log(`🤖 Entorno de ejecución: ${environment}`); // Muestra el entorno
     qrcode.generate(qr, { small: true });
 });
 
@@ -57,32 +71,30 @@ client.on('auth_failure', (msg) => {
     console.error('❌ Fallo en la autenticación. Revisa el QR o el volumen persistente.', msg);
 });
 
-// 3. Manejo de Mensajes (El Webhook que escucha los grupos)
+// 4. Manejo de Mensajes (El Webhook que escucha los grupos)
 client.on('message', async (message) => {
     // ⚠️ Escucha solo mensajes de Grupos.
     if (!message.fromMe && message.id.remote.endsWith('@g.us')) { 
-        console.log(`Mensaje de Grupo recibido: ${message.body ? message.body.substring(0, 30) + '...' : 'Media'} `);
         
-        // CORRECCIÓN DE SEGURIDAD: Verifica que la URL esté disponible antes de enviar
+        // Verifica la URL antes de enviar
         if (!N8N_WEBHOOK_URL) {
-            console.error(`❌ Error: La URL del Webhook para el entorno ${environment} no está configurada.`);
+            console.error('❌ Error de lógica: La URL de Webhook no se cargó.');
             return;
         }
 
+        console.log(`Mensaje de Grupo recibido: ${message.body ? message.body.substring(0, 30) + '...' : 'Media'} `);
+        
         let payload = {
             messageType: message.hasMedia ? 'media' : 'text',
             groupId: message.from,
-            authorId: message.author || message.from.split('@')[0], // Identificador del autor
+            authorId: message.author || message.from.split('@')[0],
             body: message.body || null,
             timestamp: message.timestamp,
         };
 
         if (message.hasMedia) {
             try {
-                // Descarga la media para obtener los datos binarios
                 const media = await message.downloadMedia();
-                
-                // Pasa la data a N8N en Base64
                 payload.media = {
                     data: media.data, 
                     mimetype: media.mimetype,
@@ -94,9 +106,9 @@ client.on('message', async (message) => {
             }
         }
         
-        // Envía el payload al Webhook de N8N
+        // Envía el payload al Webhook de N8N usando la instancia con configuración de red
         try {
-            await axios.post(N8N_WEBHOOK_URL, payload); // Usa la variable leída de config.json
+            await axiosInstance.post(N8N_WEBHOOK_URL, payload);
             console.log('Datos enviados a N8N correctamente.');
         } catch (error) {
             console.error('❌ Error al enviar datos al Webhook de N8N:', error.message);
@@ -107,10 +119,10 @@ client.on('message', async (message) => {
 client.initialize();
 
 // ------------------------------------------------------------------
-// 4. Endpoints de la API (para que N8N Envíe)
+// 5. Endpoints de la API (para que N8N Envíe)
 // ------------------------------------------------------------------
 
-// Endpoint: Enviar Mensaje Simple (Para reportes o respuestas planas)
+// Endpoint: Enviar Mensaje Simple 
 app.post('/sendMessage', async (req, res) => {
     const { targetGroup, message } = req.body; 
     
@@ -126,7 +138,7 @@ app.post('/sendMessage', async (req, res) => {
     }
 });
 
-// Endpoint: Enviar Imagen (Para la tasa diaria o reportes visuales)
+// Endpoint: Enviar Imagen 
 app.post('/sendImage', async (req, res) => {
     const { targetGroup, base64Image, caption, mimetype = 'image/png' } = req.body; 
     
@@ -134,7 +146,6 @@ app.post('/sendImage', async (req, res) => {
     if (!targetGroup || !base64Image) return res.status(400).send({ status: 'error', message: 'Faltan targetGroup y/o base64Image.' });
 
     try {
-        // El base64 debe ser una cadena pura, sin el prefijo 'data:image/png;base64,'
         const media = new MessageMedia(mimetype, base64Image, 'imagen_noctus');
 
         await client.sendMessage(targetGroup, media, { caption: caption || 'Reporte de Noctus' });
@@ -145,7 +156,7 @@ app.post('/sendImage', async (req, res) => {
     }
 });
 
-// 5. Iniciar el Servidor Express
+// 6. Iniciar el Servidor Express
 app.listen(port, () => {
-    console.log(`🤖 WhatsApp Bot API escuchando en el puerto ${port}`);
+    console.log(`✅ WhatsApp Bot API escuchando en el puerto ${port}`);
 });
