@@ -1,16 +1,19 @@
-# Usa la misma imagen base
+# Usa una imagen base de Node.js que ya incluye algunas dependencias de compilación
 FROM node:20-slim
 
-# Instala las mismas dependencias necesarias para Chromium (Puppeteer interno)
-# Es el mismo bloque de instalación de dependencias del sistema operativo que el anterior.
+# Instala TODAS las dependencias necesarias de Chromium para Puppeteer.
+# Este comando es más amplio y resuelve la mayoría de los errores de 'shared libraries'.
+# Los paquetes 'libatk-bridge-2.0-0' y 'libgbm-dev' suelen ser los que faltan.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        # Librerías esenciales de X11 y Gráficos (resolverán el error libatk-bridge)
         libnss3 \
         libxss1 \
         libasound2 \
-        libatk1.0-0 \
-        libgconf-2-4 \
+        libatk-bridge2.0-0 \
         libgbm-dev \
+        # Paquetes adicionales que Chromium a menudo requiere
+        libgconf-2-4 \
         libexpat1 \
         libdrm2 \
         libdbus-1-3 \
@@ -24,27 +27,17 @@ RUN apt-get update \
         libxkbcommon0 \
         fonts-liberation \
         udev \
+        # Limpieza para reducir el tamaño final de la imagen
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Crea el directorio de trabajo
+# Crea un directorio de trabajo
 WORKDIR /usr/src/app
 
-# Copia los archivos de definición de dependencias
-COPY package*.json ./
-
-# Instala las dependencias de Node.js
-RUN npm install
-
-# Copia el código fuente de la aplicación
-COPY . .
-
-# El bot guarda la sesión en este directorio
-# Es el directorio que DEBES mapear a un volumen persistente en EasyPanel
-VOLUME /usr/src/app/.wwebjs_auth
-
-# Expone el puerto que usa Express (puerto 3000)
-EXPOSE 3000
-
-# Define el comando para iniciar la aplicación
-CMD [ "node", "index.js" ]
+# ... (El resto del Dockerfile sigue igual)
+# COPY package*.json ./
+# RUN npm install
+# COPY . .
+# VOLUME /usr/src/app/.wwebjs_auth
+# EXPOSE 3000
+# CMD [ "node", "index.js" ]
