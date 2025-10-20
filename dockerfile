@@ -1,13 +1,13 @@
-# 1. CAMBIO CLAVE: Usamos la imagen bullseye para más estabilidad en librerías.
+# 1. ESENCIAL: Usamos la imagen bullseye para más estabilidad en librerías de Chromium.
 FROM node:20-bullseye 
 
 # 2. Crea un directorio de trabajo
 WORKDIR /usr/src/app
 
-# 3. Instalación de librerías. Esta lista es más segura con bullseye.
+# 3. Instalación de librerías de Chromium. Este comando resuelve los errores anteriores.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # Librerías esenciales de Chromium
+        # Dependencias esenciales de Chromium
         libatk-bridge2.0-0 \
         libnss3 \
         libxss1 \
@@ -28,28 +28,36 @@ RUN apt-get update \
         fonts-liberation \
         udev \
         libcups2 \
-        # Limpieza
+        # Herramientas necesarias para la ejecución
+        chromium \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 4. Crea un usuario no-root para seguridad y compatibilidad de Puppeteer
+# 4. Crea un usuario no-root para seguridad (requerido por Puppeteer)
 RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser
-RUN chown -R pptruser:pptruser /usr/src/app
 
-# 5. Copia los archivos y dependencias
+# 5. Copia los archivos de definición de dependencias
 COPY package*.json ./
+
+# 6. Instala las dependencias de Node.js
 RUN npm install
 
+# 7. Copia el código fuente de la aplicación
 COPY . .
 
-# 6. Cambia al usuario no-root para ejecutar la aplicación
+# 8. CORRECCIÓN DE PERMISOS: Da propiedad al nuevo usuario. 
+# ESTA LÍNEA ES CLAVE para resolver el error EACCES: permission denied.
+RUN chown -R pptruser:pptruser /usr/src/app
+
+# 9. Cambia al usuario no-root para ejecutar la aplicación
 USER pptruser 
 
-# 7. CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
+# 10. CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
+# Asegúrate de que esta ruta esté mapeada a un volumen persistente en EasyPanel.
 VOLUME /usr/src/app/.wwebjs_auth 
 
-# 8. Expone el puerto que usa Express (puerto 3000)
+# 11. Expone el puerto que usa Express (puerto 3000)
 EXPOSE 3000
 
-# 9. Define el comando para iniciar la aplicación
+# 12. Define el comando para iniciar la aplicación
 CMD [ "node", "index.js" ]
