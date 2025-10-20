@@ -3,8 +3,8 @@ const express = require('express');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
-// 🚨 Esta URL debe ser configurada a través de las variables de entorno de EasyPanel (process.env.N8N_WEBHOOK_URL)
-const N8N_WEBHOOK_URL = 'https://tudominio.com/webhook/n8n/whatsapp-listener'; 
+// <<< CORRECCIÓN CLAVE: El bot ahora lee la URL desde las variables de entorno de EasyPanel >>>
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL; 
 
 const app = express();
 const port = 3000; 
@@ -50,6 +50,12 @@ client.on('message', async (message) => {
     if (!message.fromMe && message.id.remote.endsWith('@g.us')) { 
         console.log(`Mensaje de Grupo recibido: ${message.body ? message.body.substring(0, 30) + '...' : 'Media'} `);
         
+        // CORRECCIÓN DE SEGURIDAD: Verifica que la URL esté disponible antes de enviar
+        if (!process.env.N8N_WEBHOOK_URL) {
+            console.error('❌ Error: La variable N8N_WEBHOOK_URL no está configurada.');
+            return;
+        }
+
         let payload = {
             messageType: message.hasMedia ? 'media' : 'text',
             groupId: message.from,
@@ -77,8 +83,7 @@ client.on('message', async (message) => {
         
         // Envía el payload al Webhook de N8N
         try {
-            // Usa la variable de entorno que se configurará en EasyPanel
-            await axios.post(N8N_WEBHOOK_URL, payload);
+            await axios.post(process.env.N8N_WEBHOOK_URL, payload);
             console.log('Datos enviados a N8N correctamente.');
         } catch (error) {
             console.error('❌ Error al enviar datos al Webhook de N8N:', error.message);
