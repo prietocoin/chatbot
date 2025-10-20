@@ -1,7 +1,14 @@
-# 2. El bloque RUN apt-get...
+# 1. ESENCIAL: Define la imagen base. ESTA DEBE SER LA PRIMERA LÍNEA.
+FROM node:20-slim 
+
+# 2. Crea un directorio de trabajo
+WORKDIR /usr/src/app
+
+# 3. Instalación de las librerías de Chromium para Puppeteer.
+# Incluye las correcciones para libatk-bridge y libcups2.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # Librerías esenciales de Chromium (las que ya agregamos)
+        # Dependencias de Chromium para Headless/Slim Images
         libatk-bridge2.0-0 \
         libnss3 \
         libxss1 \
@@ -21,9 +28,27 @@ RUN apt-get update \
         libxkbcommon0 \
         fonts-liberation \
         udev \
-        # <<<< ESTA ES LA NUEVA LÍNEA CLAVE PARA RESOLVER libcups.so.2 >>>>
+        # Dependencia CRÍTICA faltante: libcups.so.2
         libcups2 \
-        # Limpieza
+        # Limpieza para reducir el tamaño final de la imagen
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-# ... (El resto del Dockerfile)
+
+# 4. Copia los archivos de definición de dependencias
+COPY package*.json ./
+
+# 5. Instala las dependencias de Node.js
+RUN npm install
+
+# 6. Copia el código fuente de la aplicación
+COPY . .
+
+# 7. CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
+# Asegúrate de mapear esta ruta a un volumen persistente en EasyPanel.
+VOLUME /usr/src/app/.wwebjs_auth 
+
+# 8. Expone el puerto que usa Express (puerto 3000)
+EXPOSE 3000
+
+# 9. Define el comando para iniciar la aplicación
+CMD [ "node", "index.js" ]
