@@ -1,26 +1,27 @@
+# 1. ESENCIAL: Define la imagen base.
+FROM node:20-slim 
+
+# 2. El bloque RUN apt-get... (el que ya tienes, que está correcto)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # ASEGÚRATE de que esta librería esté aquí (resuelve tu error)
         libatk-bridge2.0-0 \
-        # Dependencias comunes de Chromium
         libnss3 \
         libxss1 \
-        libasound2 \
-        libgbm-dev \
-        libgconf-2-4 \
-        libexpat1 \
-        libdrm2 \
-        libdbus-1-3 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxext6 \
-        libxfixes3 \
-        libxi6 \
-        libxrandr2 \
-        libxrender1 \
-        libxkbcommon0 \
-        fonts-liberation \
-        udev \
-        # Limpieza
+        # ... todas las demás librerías ...
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# 3. El resto del Dockerfile (WORKDIR, COPY, EXPOSE, CMD)
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
+VOLUME /usr/src/app/.wwebjs_auth 
+
+EXPOSE 3000
+
+CMD [ "node", "index.js" ]
