@@ -1,8 +1,8 @@
 {
   "test": {
-    "N8N_WEBHOOK_URL": "https://automatizaciones-n8n.eo3pev.easypanel.host/webhook-test/538cd014-4749-49c1-a590-1b9d28c6e84a"
+    "N8N_WEBHOOK_URL": "https://automatizaciones-n8n.eo3pev.easypanel.host/webhook-test/b31f1cbb-8dca-417d-b19e-6c5ff6f4f5f0"
   },
   "production": {
-    "N8N_WEBHOOK_URL": "https://automatizaciones-n8n.eo3pev.easypanel.host/webhook/538cd014-4749-49c1-a590-1b9d28c6e84a"
+    "N8N_WEBHOOK_URL": "https://automatizaciones-n8n.eo3pev.easypanel.host/webhook/b31f1cbb-8dca-417d-b19e-6c5ff6f4f5f0"
   }
 }
