@@ -3,7 +3,7 @@ const express = require('express');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
-// 🚨 Reemplaza esta URL con el Webhook de N8N que escuchará los mensajes de WhatsApp
+// 🚨 Esta URL debe ser configurada a través de las variables de entorno de EasyPanel (process.env.N8N_WEBHOOK_URL)
 const N8N_WEBHOOK_URL = 'https://tudominio.com/webhook/n8n/whatsapp-listener'; 
 
 const app = express();
@@ -25,7 +25,7 @@ const client = new Client({
             '--no-zygote',
             '--single-process',
         ],
-        // <<< RUTA CORREGIDA >>>: Quitar el "-browser" para la compatibilidad con Debian/bullseye
+        // <<< RUTA FUNCIONAL >>>: Se utiliza el binario 'chromium'
         executablePath: '/usr/bin/chromium', 
     }
 });
@@ -77,6 +77,7 @@ client.on('message', async (message) => {
         
         // Envía el payload al Webhook de N8N
         try {
+            // Usa la variable de entorno que se configurará en EasyPanel
             await axios.post(N8N_WEBHOOK_URL, payload);
             console.log('Datos enviados a N8N correctamente.');
         } catch (error) {
