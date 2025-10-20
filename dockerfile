@@ -1,14 +1,13 @@
-# 1. ESENCIAL: Define la imagen base. ESTA DEBE SER LA PRIMERA LÍNEA.
-FROM node:20-slim 
+# 1. CAMBIO CLAVE: Usamos la imagen bullseye para más estabilidad en librerías.
+FROM node:20-bullseye 
 
 # 2. Crea un directorio de trabajo
 WORKDIR /usr/src/app
 
-# 3. Instalación de las librerías de Chromium para Puppeteer.
-# Incluye las correcciones para libatk-bridge y libcups2.
+# 3. Instalación de librerías. Esta lista es más segura con bullseye.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        # Dependencias de Chromium para Headless/Slim Images
+        # Librerías esenciales de Chromium
         libatk-bridge2.0-0 \
         libnss3 \
         libxss1 \
@@ -28,23 +27,25 @@ RUN apt-get update \
         libxkbcommon0 \
         fonts-liberation \
         udev \
-        # Dependencia CRÍTICA faltante: libcups.so.2
         libcups2 \
-        # Limpieza para reducir el tamaño final de la imagen
+        # Limpieza
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 4. Copia los archivos de definición de dependencias
-COPY package*.json ./
+# 4. Crea un usuario no-root para seguridad y compatibilidad de Puppeteer
+RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser
+RUN chown -R pptruser:pptruser /usr/src/app
 
-# 5. Instala las dependencias de Node.js
+# 5. Copia los archivos y dependencias
+COPY package*.json ./
 RUN npm install
 
-# 6. Copia el código fuente de la aplicación
 COPY . .
 
+# 6. Cambia al usuario no-root para ejecutar la aplicación
+USER pptruser 
+
 # 7. CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
-# Asegúrate de mapear esta ruta a un volumen persistente en EasyPanel.
 VOLUME /usr/src/app/.wwebjs_auth 
 
 # 8. Expone el puerto que usa Express (puerto 3000)
