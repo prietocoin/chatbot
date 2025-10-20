@@ -3,8 +3,20 @@ const express = require('express');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
-// <<< CORRECCIÓN CLAVE: El bot ahora lee la URL desde las variables de entorno de EasyPanel >>>
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL; 
+// ----------------------------------------------------------
+// 1. CARGA DE CONFIGURACIÓN Y ENTORNO
+// ----------------------------------------------------------
+const config = require('./config.json');
+
+// Determina el entorno ('test' o 'production'). Lee la variable NODE_ENV de EasyPanel.
+const environment = process.env.NODE_ENV === 'production' ? 'production' : 'test';
+
+// Selecciona las credenciales para el entorno actual (del archivo config.json)
+const envConfig = config[environment]; 
+
+// La URL del Webhook ahora se lee del archivo config.json cargado
+const N8N_WEBHOOK_URL = envConfig.N8N_WEBHOOK_URL; 
+// ----------------------------------------------------------
 
 const app = express();
 const port = 3000; 
@@ -33,6 +45,7 @@ const client = new Client({
 // 2. Eventos de Conexión
 client.on('qr', (qr) => {
     console.log('🤖 Escanea el código QR con WhatsApp Web:');
+    console.log(`🤖 Entorno de ejecución: ${environment}`); // Muestra el entorno
     qrcode.generate(qr, { small: true });
 });
 
@@ -51,8 +64,8 @@ client.on('message', async (message) => {
         console.log(`Mensaje de Grupo recibido: ${message.body ? message.body.substring(0, 30) + '...' : 'Media'} `);
         
         // CORRECCIÓN DE SEGURIDAD: Verifica que la URL esté disponible antes de enviar
-        if (!process.env.N8N_WEBHOOK_URL) {
-            console.error('❌ Error: La variable N8N_WEBHOOK_URL no está configurada.');
+        if (!N8N_WEBHOOK_URL) {
+            console.error(`❌ Error: La URL del Webhook para el entorno ${environment} no está configurada.`);
             return;
         }
 
@@ -83,7 +96,7 @@ client.on('message', async (message) => {
         
         // Envía el payload al Webhook de N8N
         try {
-            await axios.post(process.env.N8N_WEBHOOK_URL, payload);
+            await axios.post(N8N_WEBHOOK_URL, payload); // Usa la variable leída de config.json
             console.log('Datos enviados a N8N correctamente.');
         } catch (error) {
             console.error('❌ Error al enviar datos al Webhook de N8N:', error.message);
