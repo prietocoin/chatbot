@@ -1,4 +1,7 @@
 {
+  "development": {
+    "N8N_WEBHOOK_URL": "http://automatizaciones_noctus:5678/webhook-test/b31f1cbb-8dca-417d-b19e-6c5ff6f4f5f0"
+  },
   "test": {
     "N8N_WEBHOOK_URL": "http://automatizaciones_noctus:5678/webhook-test/b31f1cbb-8dca-417d-b19e-6c5ff6f4f5f0"
   },
