@@ -4,38 +4,28 @@ FROM node:20-bullseye
 # 2. Crea un directorio de trabajo
 WORKDIR /usr/src/app
 
-# 3. Instalación de librerías de Chromium
+# 3. Instalación de librerías de Chromium (Resuelve todos los errores anteriores)
+# Nota: La línea 'chromium' instala el binario que necesitamos.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libatk-bridge2.0-0 libnss3 libxss1 libasound2 libgbm-dev libgconf-2-4 libexpat1 libdrm2 libdbus-1-3 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxkbcommon0 fonts-liberation udev libcups2 chromium \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 4. Crea un usuario no-root
-RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser
-
-# 5. Copia los archivos de definición de dependencias
+# 4. Copia los archivos de definición de dependencias
 COPY package*.json ./
 
-# 6. Instala las dependencias de Node.js
+# 5. Instala las dependencias de Node.js
 RUN npm install
 
-# 7. Copia el código fuente de la aplicación
+# 6. Copia el código fuente de la aplicación
 COPY . .
 
-# 8. PERMISOS CRUCIALES: 
-# Movemos el chown AQUÍ, antes de cambiar de usuario. 
-# Esto asegura que el usuario no-root sea el dueño de la carpeta donde se escribirá la sesión.
-RUN chown -R pptruser:pptruser /usr/src/app
-
-# 9. Cambia al usuario no-root para ejecutar la aplicación
-USER pptruser 
-
-# 10. CRÍTICO: Definición del volumen para persistencia de la sesión
+# 7. CRÍTICO: Volumen para persistencia de la sesión de WhatsApp
 VOLUME /usr/src/app/.wwebjs_auth 
 
-# 11. Exposición del puerto
+# 8. Exposición del puerto
 EXPOSE 3000
 
-# 12. Comando de inicio
+# 9. Comando de inicio (Ejecutado como ROOT, el usuario por defecto)
 CMD [ "node", "index.js" ]
