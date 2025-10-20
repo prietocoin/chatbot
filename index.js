@@ -25,8 +25,8 @@ const client = new Client({
             '--no-zygote',
             '--single-process',
         ],
-        // <<< LÍNEA CLAVE PARA DOCKER/Bullseye >>> Indica a Puppeteer dónde encontrar el binario de Chrome/Chromium
-        executablePath: '/usr/bin/chromium-browser', 
+        // <<< RUTA CORREGIDA >>>: Quitar el "-browser" para la compatibilidad con Debian/bullseye
+        executablePath: '/usr/bin/chromium', 
     }
 });
 
