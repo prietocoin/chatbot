@@ -108,4 +108,25 @@ app.post('/sendMessage', async (req, res) => {
 });
 
 // Endpoint: Enviar Imagen (Para la tasa diaria o reportes visuales)
-app.post('/sendImage', async (
+app.post('/sendImage', async (req, res) => {
+    const { targetGroup, base64Image, caption, mimetype = 'image/png' } = req.body; 
+    
+    if (!client.isReady) return res.status(503).send({ status: 'error', message: 'Chatbot no está listo o conectado.' });
+    if (!targetGroup || !base64Image) return res.status(400).send({ status: 'error', message: 'Faltan targetGroup y/o base64Image.' });
+
+    try {
+        // El base64 debe ser una cadena pura, sin el prefijo 'data:image/png;base64,'
+        const media = new MessageMedia(mimetype, base64Image, 'imagen_noctus');
+
+        await client.sendMessage(targetGroup, media, { caption: caption || 'Reporte de Noctus' });
+        res.send({ status: 'success', message: 'Imagen enviada correctamente.' });
+    } catch (error) {
+        console.error('Error enviando imagen:', error);
+        res.status(500).send({ status: 'error', message: error.message });
+    }
+});
+
+// 5. Iniciar el Servidor Express
+app.listen(port, () => {
+    console.log(`🤖 WhatsApp Bot API escuchando en el puerto ${port}`);
+});
