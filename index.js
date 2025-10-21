@@ -71,6 +71,13 @@ client.on('auth_failure', (msg) => {
     console.error('❌ Fallo en la autenticación. Revisa el QR o el volumen persistente.', msg);
 });
 
+// VVV ESTE ES EL NUEVO CÓDIGO AÑADIDO VVV
+client.on('disconnected', (reason) => {
+    console.warn(`🛑 El bot se ha desconectado. Razón: ${reason}`);
+    console.warn('El bot intentará reconectarse automáticamente, pero client.isReady será "false" hasta entonces.');
+});
+// ^^^ FIN DEL CÓDIGO AÑADIDO ^^^
+
 // 4. Manejo de Mensajes (El Webhook que escucha los grupos)
 client.on('message', async (message) => {
     // ⚠️ Escucha solo mensajes de Grupos.
